@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT to Video Studio</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --bg-panel: #252526;
+            --bg-light: #333333;
+            --accent: #007acc;
+            --text-main: #ffffff;
+            --text-dim: #cccccc;
+            --border: #3e3e42;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Navbar */
+        .navbar {
+            height: 50px;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-weight: bold;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0098ff;
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-light);
+            color: white;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Left: Slide List */
+        .sidebar-left {
+            width: 200px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide-item {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .slide-item:hover {
+            background-color: var(--bg-light);
+        }
+
+        .slide-item.active {
+            background-color: var(--bg-light);
+            border-left: 3px solid var(--accent);
+        }
+
+        .slide-thumb {
+            width: 100%;
+            aspect-ratio: 16/9;
+            object-fit: cover;
+            background: black;
+            border-radius: 4px;
+        }
+
+        .slide-num {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+
+        /* Center: Editor */
+        .editor-stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #1e1e1e;
+            padding: 20px;
+            gap: 20px;
+            align-items: center;
+            overflow-y: auto;
+        }
+
+        .preview-container {
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 16/9;
+            background: black;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        #current-image {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .script-editor {
+            width: 100%;
+            max-width: 800px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .script-header {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-light);
+            border-radius: 8px 8px 0 0;
+        }
+
+        .script-text {
+            width: 100%;
+            height: 150px;
+            background: transparent;
+            border: none;
+            padding: 15px;
+            color: white;
+            resize: none;
+            font-size: 16px;
+            line-height: 1.5;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        /* Right: Tools */
+        .sidebar-right {
+            width: 300px;
+            background-color: var(--bg-panel);
+            border-left: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .panel {
+            background: var(--bg-light);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .panel h3 {
+            margin-top: 0;
+            font-size: 14px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 15px;
+        }
+
+        .selector {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: white;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border);
+            padding: 40px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent);
+        }
+
+        /* Loading Overlay & Modals */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            /* Flex centering by default */
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        /* Override display:none from JS with display:flex/none toggling class? 
+           Actually JS sets style.display. We should rely on that + class for animation or just use CSS transitions if we can.
+           Simplest fix for "Stiff": Add transition to opacity.
+           And for "Centering": The overlay is already flex centered in my new CSS.
+        */
+
+        .panel {
+            background: var(--bg-light);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .overlay.show .panel {
+            transform: scale(1);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Loading Overlay -->
+    <div id="loader" class="overlay">
+        <div class="spinner"></div>
+        <h3 id="loader-text">Processing...</h3>
+    </div>
+
+    <!-- Success Overlay -->
+    <div id="result-modal" class="overlay">
+        <div class="panel" style="text-align: center; width: 400px; background: var(--bg-panel);">
+            <i class="fas fa-check-circle" style="font-size: 48px; color: #4caf50; margin-bottom: 20px;"></i>
+            <h2>Video Generated!</h2>
+            <p>Your video is ready to download.</p>
+            <a id="download-link" href="#" class="btn btn-primary"
+                style="justify-content: center; margin-top: 20px;">Download MP4</a>
+            <button onclick="document.getElementById('result-modal').style.display='none'" class="btn btn-secondary"
+                style="margin-top: 10px; width: 100%;">Close</button>
+        </div>
+    </div>
+
+    <!-- Error Overlay -->
+    <div id="error-modal" class="overlay">
+        <div class="panel"
+            style="text-align: center; width: 400px; background: var(--bg-panel); border: 1px solid #ff4444;">
+            <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #ff4444; margin-bottom: 20px;"></i>
+            <h2 style="color: #ff4444;">Error</h2>
+            <p id="error-text" style="color: #ddd;">Something went wrong.</p>
+            <button onclick="hideError()" class="btn btn-secondary"
+                style="margin-top: 20px; width: 100%;">Close</button>
+        </div>
+    </div>
+
+    <!-- Task Manager Modal -->
+    <div id="task-modal" class="overlay">
+        <div class="panel"
+            style="width: 500px; background: var(--bg-panel); max-height: 70vh; display: flex; flex-direction: column;">
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #444; padding-bottom:10px;">
+                <h2 style="margin:0; font-size:18px;"><i class="fas fa-tasks"></i> Task Manager</h2>
+                <button onclick="toggleTaskManager()"
+                    style="background:none; border:none; color:#ddd; cursor:pointer;"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <div id="task-list" style="overflow-y:auto; flex:1; padding-right:5px;">
+                <!-- Task Items -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Normalize Navbar -->
+    <div class="navbar">
+        <div class="logo"><i class="fas fa-video"></i> PPT Video Studio</div>
+        <div class="actions">
+            <button class="btn btn-secondary" onclick="triggerUpload()"><i class="fas fa-upload"></i> New
+                Project</button>
+            <button class="btn btn-secondary" onclick="toggleTaskManager()"><i class="fas fa-tasks"></i>
+                Tasks</button>
+            <button class="btn btn-primary" onclick="generateVideo()"><i class="fas fa-magic"></i> Generate
+                Video</button>
+        </div>
+        <input type="file" id="file-upload" hidden accept=".pptx">
+    </div>
+
+    <div class="main-container" id="app-container" style="justify-content: center; align-items: center;">
+
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state">
+            <div class="upload-zone" onclick="triggerUpload()">
+                <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: var(--text-dim);"></i>
+                <h2 style="margin-top: 20px;">Upload PowerPoint</h2>
+                <p style="color: var(--text-dim);">Supported format: .pptx</p>
+            </div>
+        </div>
+
+        <!-- App UI (Hidden initially) -->
+        <div id="workspace" style="display: none; width: 100%; height: 100%; display: flex;">
+            <!-- Left Sidebar -->
+            <div class="sidebar-left" id="slide-list">
+                <!-- Slides injected here -->
+            </div>
+
+            <!-- Center Stage -->
+            <div class="editor-stage">
+                <div class="preview-container">
+                    <img id="current-image" src="" alt="Slide Preview">
+                </div>
+
+                <div class="script-editor">
+                    <div class="script-header">
+                        <span><i class="fas fa-comment-alt"></i> Script / Notes</span>
+                        <button class="btn btn-primary" style="padding: 4px 10px; font-size: 12px;"
+                            onclick="playPreview()"><i class="fas fa-play"></i> Audition Voice</button>
+                    </div>
+                    <textarea id="script-text" class="script-text"
+                        placeholder="Enter text for speech synthesis..."></textarea>
+                </div>
+            </div>
+
+            <!-- Right Sidebar -->
+            <div class="sidebar-right">
+                <div class="panel">
+                    <h3><i class="fas fa-robot"></i> AI Narrator</h3>
+
+                    <!-- Subtitle Settings -->
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #444;">
+                        <label style="display:block; margin-bottom:8px; font-size:12px; color:#aaa;">Subtitles</label>
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <label
+                                style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                                <input type="checkbox" id="subtitle-toggle" checked> Enable
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                                Size: <input type="number" id="subtitle-size" value="48" min="20" max="100"
+                                    style="width: 50px; padding: 2px;">
+                            </label>
+                        </div>
+                    </div>
+
+                    <label style="display:block; margin-bottom:8px; font-size:12px; color:#aaa;">Provider</label>
+                    <select id="engine-select" class="selector">
+                        <option value="edge">Microsoft Edge (Free)</option>
+                        <option value="xunfei">iFLYTEK (Pro)</option>
+                    </select>
+
+                    <label style="display:block; margin-bottom:8px; font-size:12px; color:#aaa;">Voice Persona</label>
+                    <select id="voice-select" class="selector">
+                        <optgroup label="Mandarin (Mainland)">
+                            <option value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Female, Warm)</option>
+                            <option value="zh-CN-YunxiNeural">Yunxi (Male, Confident)</option>
+                            <option value="zh-CN-YunjianNeural">Yunjian (Male, Sports)</option>
+                            <option value="zh-CN-YunxiaNeural">Yunxia (Male, Cartoon)</option>
+                            <option value="zh-CN-YunyangNeural">Yunyang (Male, News)</option>
+                            <option value="zh-CN-liaoning-XiaobeiNeural">Xiaobei (Liaoning Dialect)</option>
+                            <option value="zh-CN-shaanxi-XiaoniNeural">Xiaoni (Shaanxi Dialect)</option>
+                        </optgroup>
+                        <optgroup label="Cantonese (Hong Kong)">
+                            <option value="zh-HK-HiuGaaiNeural">HiuGaai (Female)</option>
+                            <option value="zh-HK-HiuMaanNeural">HiuMaan (Female)</option>
+                            <option value="zh-HK-WanLungNeural">WanLung (Male)</option>
+                        </optgroup>
+                        <optgroup label="Mandarin (Taiwan)">
+                            <option value="zh-TW-HsiaoChenNeural">HsiaoChen (Female)</option>
+                            <option value="zh-TW-HsiaoYuNeural">HsiaoYu (Female)</option>
+                            <option value="zh-TW-YunJheNeural">YunJhe (Male)</option>
+                        </optgroup>
+                        <optgroup label="English (US)">
+                            <option value="en-US-AriaNeural">Aria (Female)</option>
+                            <option value="en-US-GuyNeural">Guy (Male)</option>
+                            <option value="en-US-JennyNeural">Jenny (Female)</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="panel">
+                    <h3>Project Info</h3>
+                    <p style="font-size: 14px; color: #aaa;">Job ID: <span id="job-id">---</span></p>
+                    <p style="font-size: 14px; color: #aaa;">Total Slides: <span id="slide-count">0</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audio-player" hidden></audio>
+
+    <script>
+        // State
+        let currentJobId = null;
+        let slides = [];
+        let currentIndex = 0;
+
+        // Elements
+        const fileInput = document.getElementById('file-upload');
+        const emptyState = document.getElementById('empty-state');
+        const workspace = document.getElementById('workspace');
+        const slideList = document.getElementById('slide-list');
+        const currentImage = document.getElementById('current-image');
+        const scriptText = document.getElementById('script-text');
+        const loader = document.getElementById('loader');
+        const loaderText = document.getElementById('loader-text');
+
+        // Handlers
+        function triggerUpload() {
+            fileInput.click();
+        }
+
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length === 0) return;
+            const file = e.target.files[0];
+
+            showLoader("Parsing PowerPoint...");
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/parse', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.error) throw new Error(data.error);
+
+                // Init Studio
+                currentJobId = data.job_id;
+                slides = data.slides;
+                document.getElementById('job-id').textContent = currentJobId;
+                document.getElementById('slide-count').textContent = slides.length;
+
+                initWorkspace();
+            } catch (err) {
+                alert("Upload Failed: " + err.message);
+            } finally {
+                hideLoader();
+            }
+        });
+
+        function initWorkspace() {
+            // Toggle Views
+            emptyState.style.display = 'none';
+            // Need to set flex explicitly because we hid it
+            document.getElementById('app-container').style.display = 'flex'; // Reset container
+            workspace.style.display = 'flex';
+
+            renderSlideList();
+            selectSlide(0);
+        }
+
+        function renderSlideList() {
+            slideList.innerHTML = '';
+            slides.forEach((slide, idx) => {
+                const div = document.createElement('div');
+                div.className = `slide-item ${idx === currentIndex ? 'active' : ''}`;
+                div.onclick = () => selectSlide(idx);
+                div.innerHTML = `
+                    <div style="position: relative;">
+                        <img src="${slide.image_url}" class="slide-thumb">
+                        <span class="slide-num">${idx + 1}</span>
+                    </div>
+                `;
+                slideList.appendChild(div);
+            });
+        }
+
+        function selectSlide(idx) {
+            // Save current text before switching
+            if (slides[currentIndex]) {
+                slides[currentIndex].text = scriptText.value;
+            }
+
+            currentIndex = idx;
+            const slide = slides[idx];
+
+            // Update Center
+            currentImage.src = slide.image_url;
+            scriptText.value = slide.text;
+
+            // Update List Visuals
+            Array.from(slideList.children).forEach((child, i) => {
+                child.className = `slide-item ${i === idx ? 'active' : ''}`;
+            });
+        }
+
+        // Auto-save text on change
+        scriptText.addEventListener('input', (e) => {
+            slides[currentIndex].text = e.target.value;
+        });
+
+        async function playPreview() {
+            const text = scriptText.value;
+            if (!text.trim()) {
+                alert("Please enter some text to audition.");
+                return;
+            }
+
+            const engine = document.getElementById('engine-select').value;
+            const voice = document.getElementById('voice-select').value;
+            const btn = document.querySelector('.script-header .btn');
+            const originalIcon = btn.innerHTML;
+
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, engine_type: engine, voice_name: voice })
+                });
+
+                if (!res.ok) throw new Error("Preview failed");
+
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const audio = document.getElementById('audio-player');
+                audio.src = url;
+                audio.play();
+
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btn.innerHTML = originalIcon;
+                btn.disabled = false;
+            }
+        }
+
+        // Task Management
+        const taskModal = document.getElementById('task-modal');
+        const taskList = document.getElementById('task-list');
+
+        function toggleTaskManager() {
+            const isVisible = taskModal.classList.contains('show');
+            if (isVisible) {
+                taskModal.classList.remove('show');
+                setTimeout(() => taskModal.style.display = 'none', 300); // Wait for transition
+            } else {
+                taskModal.style.display = 'flex';
+                // Trigger reflow?
+                setTimeout(() => taskModal.classList.add('show'), 10);
+                pollTasks();
+            }
+        }
+
+        async function pollTasks() {
+            try {
+                const res = await fetch('/api/tasks');
+                const data = await res.json();
+                renderTasks(data.tasks);
+            } catch (err) {
+                console.error("Poll failed", err);
+            }
+        }
+
+        // Poll every 3 seconds if modal is open or general background
+        setInterval(pollTasks, 3000);
+
+        function renderTasks(tasks) {
+            taskList.innerHTML = '';
+            // Sort by CreatedAt desc (assuming backend returns list, we sort here)
+            // or just render. backend list might be random order.
+            // Let's reverse to show newest first if appended in order.
+
+            tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            if (tasks.length === 0) {
+                taskList.innerHTML = '<p style="text-align:center; color:#888;">No tasks found.</p>';
+                return;
+            }
+
+            tasks.forEach(task => {
+                const item = document.createElement('div');
+                item.className = 'task-item';
+                item.style.borderBottom = '1px solid #333';
+                item.style.padding = '10px';
+                item.style.marginBottom = '10px';
+
+                let statusColor = '#ccc';
+                if (task.status === 'processing') statusColor = '#007acc';
+                if (task.status === 'success') statusColor = '#4caf50';
+                if (task.status === 'failed') statusColor = '#f44336';
+
+                let actionHtml = '';
+                if (task.status === 'success' && task.download_url) {
+                    actionHtml = `<a href="${task.download_url}" class="btn btn-primary" style="padding:4px 8px; font-size:12px; text-decoration:none;">Download</a>`;
+                }
+
+                let errorHtml = '';
+                if (task.status === 'failed' && task.error) {
+                    errorHtml = `<div style="font-size:11px; color:#ff4444; margin-top:5px; padding:5px; background:rgba(255,68,68,0.1); border-radius:4px;">${task.error}</div>`;
+                }
+
+                item.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span style="font-weight:bold; font-size:14px;">Job ${task.id.substring(0, 8)}...</span>
+                        <span style="font-size:12px; color:${statusColor}; text-transform:uppercase;">${task.status}</span>
+                    </div>
+                    <div style="font-size:12px; color:#aaa; margin-bottom:5px;">${task.message || 'Waiting...'}</div>
+                    <div style="background:#333; height:4px; border-radius:2px; overflow:hidden;">
+                        <div style="width:${task.progress}%; background:${statusColor}; height:100%; transition:width 0.3s;"></div>
+                    </div>
+                    ${errorHtml}
+                    <div style="margin-top:8px; display:flex; justify-content:flex-end;">
+                        ${actionHtml}
+                    </div>
+                `;
+                taskList.appendChild(item);
+            });
+        }
+
+        async function generateVideo() {
+            if (!currentJobId) return;
+
+            // Ensure current text is saved
+            slides[currentIndex].text = scriptText.value;
+
+            // 1. Validation: Check for empty notes
+            const emptySlides = slides.filter(s => !s.text || !s.text.trim());
+            if (emptySlides.length > 0) {
+                const indices = emptySlides.map(s => s.index + 1).join(", ");
+                // Use Error Modal instead of alert for persistence
+                showError(`Warning: Slide(s) ${indices} have no notes. Please add text before generating video.`);
+                return; // Abort
+            }
+
+            // showLoader("Submitting Job..."); // No loader needed for async, just toast or nothing
+
+            const engine = document.getElementById('engine-select').value;
+            const voice = document.getElementById('voice-select').value;
+
+            // New: Get Subtitle Settings
+            const enableSubtitles = document.getElementById('subtitle-toggle').checked;
+            const subtitleSize = parseInt(document.getElementById('subtitle-size').value, 10);
+
+            try {
+                const res = await fetch('/api/render', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        job_id: currentJobId,
+                        slides: slides,
+                        engine_type: engine,
+                        voice_name: voice,
+                        enable_subtitles: enableSubtitles,
+                        subtitle_font_size: subtitleSize
+                    })
+                });
+
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                // Use simple toast or alert for success is fine, or just open manager
+                // alert("Video generation started! Check the Task Manager for progress.");
+                toggleTaskManager(); // Open task manager
+
+            } catch (err) {
+                showError("Submission Failed: " + err.message);
+            }
+        }
+
+        function showLoader(msg) {
+            loaderText.innerText = msg;
+            loader.style.display = 'flex';
+        }
+
+        function hideLoader() {
+            loader.style.display = 'none';
+        }
+
+        // Error Modal Logic
+        const errorModal = document.getElementById('error-modal');
+        function showError(msg) {
+            document.getElementById('error-text').innerText = msg;
+            errorModal.style.display = 'flex';
+            setTimeout(() => errorModal.classList.add('show'), 10);
+        }
+
+        function hideError() {
+            errorModal.classList.remove('show');
+            setTimeout(() => errorModal.style.display = 'none', 300);
+        }
+    </script>
+</body>
+
+</html>
