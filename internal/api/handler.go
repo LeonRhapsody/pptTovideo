@@ -42,12 +42,18 @@ type PreviewRequest struct {
 	Text       string `json:"text" binding:"required"`
 	EngineType string `json:"engine_type" binding:"required"`
 	VoiceName  string `json:"voice_name"`
+	Rate       string `json:"rate"`
+	Volume     string `json:"volume"`
+	Pitch      string `json:"pitch"`
 }
 
 type RenderRequest struct {
 	JobID            string      `json:"job_id" binding:"required"`
 	EngineType       string      `json:"engine_type" binding:"required"`
 	VoiceName        string      `json:"voice_name"`
+	Rate             string      `json:"rate"`
+	Volume           string      `json:"volume"`
+	Pitch            string      `json:"pitch"`
 	Slides           []SlideData `json:"slides" binding:"required"`
 	EnableSubtitles  bool        `json:"enable_subtitles"`
 	SubtitleFontSize int         `json:"subtitle_font_size"`
@@ -180,12 +186,65 @@ func (h *Handler) HandlePreview(c *gin.Context) {
 	defer os.Remove(tmpFile.Name())
 	tmpFile.Close()
 
-	if err := provider.Synthesize(req.Text, tmpFile.Name(), req.VoiceName); err != nil {
+	opts := tts.Options{
+		Rate:   req.Rate,
+		Volume: req.Volume,
+		Pitch:  req.Pitch,
+	}
+
+	processedText := req.Text
+	// Replace [停顿] with something that causes a pause.
+	// For Edge TTS, wrapping in SSML is best, but a simpler way for now
+	// is to use periods which its natural processing understands.
+	// However, we'll use a more explicit approach if needed.
+	processedText = strings.ReplaceAll(processedText, "[停顿]", "... ")
+
+	if err := provider.Synthesize(processedText, tmpFile.Name(), req.VoiceName, opts); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.File(tmpFile.Name())
+}
+
+func (h *Handler) HandleGetConfig(c *gin.Context) {
+	// Return config for frontend display.
+	// Security note: We might want to mask secrets in a real prod app,
+	// but for a local tool returning them is fine for editing.
+	c.JSON(http.StatusOK, h.Config)
+}
+
+func (h *Handler) HandleSaveConfig(c *gin.Context) {
+	var newCfg config.Config
+	if err := c.ShouldBindJSON(&newCfg); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Update current config
+	// We need to be careful not to overwrite Port if it's not in JSON,
+	// but frontend should send everything.
+	// For simplicity, we just copy the fields we care about or replace the struct values
+
+	h.Config.XunfeiAppID = newCfg.XunfeiAppID
+	h.Config.XunfeiAPIKey = newCfg.XunfeiAPIKey
+	h.Config.XunfeiAPISecret = newCfg.XunfeiAPISecret
+
+	h.Config.VolcAccessKey = newCfg.VolcAccessKey
+	h.Config.VolcSecretKey = newCfg.VolcSecretKey
+	h.Config.VolcAppKey = newCfg.VolcAppKey
+
+	h.Config.GoogleAPIKey = newCfg.GoogleAPIKey
+
+	h.Config.OpenAIAPIKey = newCfg.OpenAIAPIKey
+	h.Config.OpenAIBaseURL = newCfg.OpenAIBaseURL
+
+	if err := h.Config.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Configuration saved"})
 }
 
 func (h *Handler) HandleGetTasks(c *gin.Context) {
@@ -270,8 +329,15 @@ func (h *Handler) HandleRender(c *gin.Context) {
 			if len(strings.TrimSpace(textToSpeak)) == 0 {
 				textToSpeak = "..."
 			}
+			textToSpeak = strings.ReplaceAll(textToSpeak, "[停顿]", "... ")
 
-			if err := provider.Synthesize(textToSpeak, outPath, req.VoiceName); err != nil {
+			opts := tts.Options{
+				Rate:   req.Rate,
+				Volume: req.Volume,
+				Pitch:  req.Pitch,
+			}
+
+			if err := provider.Synthesize(textToSpeak, outPath, req.VoiceName, opts); err != nil {
 				errMsg := fmt.Sprintf("TTS failed for segment %d: %v", i+1, err)
 				GlobalJobManager.FailJob(jobID, errMsg)
 				return

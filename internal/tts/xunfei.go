@@ -23,7 +23,7 @@ func NewXunfeiProvider(cfg *config.Config) *XunfeiProvider {
 	return &XunfeiProvider{Config: cfg}
 }
 
-func (x *XunfeiProvider) Synthesize(text string, outputPath string, voiceName string) error {
+func (x *XunfeiProvider) Synthesize(text string, outputPath string, voiceName string, opts Options) error {
 	if x.Config.XunfeiAppID == "" || x.Config.XunfeiAPIKey == "" || x.Config.XunfeiAPISecret == "" {
 		return fmt.Errorf("Xunfei credentials not configured")
 	}

@@ -20,7 +20,11 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// 3. Setup Router
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/api/tasks"},
+	}))
 
 	// Load HTML templates
 	r.LoadHTMLGlob("templates/*")

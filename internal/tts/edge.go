@@ -19,9 +19,20 @@ func NewEdgeProvider() *EdgeProvider {
 	}
 }
 
-func (e *EdgeProvider) Synthesize(text string, outputPath string, voiceName string) error {
+func (e *EdgeProvider) Synthesize(text string, outputPath string, voiceName string, opts Options) error {
 	if voiceName == "" {
 		voiceName = e.DefaultVoice
+	}
+
+	// Handle defaults if empty
+	if opts.Rate == "" {
+		opts.Rate = "+0%"
+	}
+	if opts.Volume == "" {
+		opts.Volume = "+0%"
+	}
+	if opts.Pitch == "" {
+		opts.Pitch = "+0Hz"
 	}
 
 	maxRetries := 3
@@ -40,6 +51,9 @@ func (e *EdgeProvider) Synthesize(text string, outputPath string, voiceName stri
 			"--text", text,
 			"--write-media", outputPath,
 			"--voice", voiceName,
+			"--rate="+opts.Rate,
+			"--volume="+opts.Volume,
+			"--pitch="+opts.Pitch,
 		)
 
 		output, err := cmd.CombinedOutput()
