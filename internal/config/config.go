@@ -24,6 +24,10 @@ type Config struct {
 	OpenAIAPIKey  string `json:"openai_api_key"`
 	OpenAIBaseURL string `json:"openai_base_url"` // Optional proxy
 
+	// Fish Speech
+	FishSpeechAPIKey string `json:"fish_speech_api_key"`
+	FishSpeechAPIURL string `json:"fish_speech_api_url"` // e.g., https://api.fish.audio/v1/tts
+
 	Port string `json:"port"`
 
 	mu sync.RWMutex

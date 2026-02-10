@@ -81,7 +81,7 @@
 
         /* Left Sidebar */
         .sidebar-left {
-            width: 160px;
+            width: 140px;
             background-color: var(--sidebar-left-bg);
             border-right: 1px solid var(--border-light);
             display: flex;
@@ -169,7 +169,7 @@
 
         .editor-container {
             flex: 1;
-            padding: 32px;
+            padding: 24px 40px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -178,7 +178,7 @@
 
         .preview-box {
             width: 100%;
-            max-width: 800px;
+            max-width: 1000px;
             aspect-ratio: 16/9;
             background: #000;
             border-radius: 8px;
@@ -194,7 +194,7 @@
 
         .script-box {
             width: 100%;
-            max-width: 800px;
+            max-width: 1000px;
             background: #ffffff;
             border-radius: 12px;
             box-shadow: var(--shadow);
@@ -238,7 +238,7 @@
 
         /* Right Sidebar Panel */
         .sidebar-right {
-            width: 320px;
+            width: 280px;
             height: 100%;
             background: var(--sidebar-right-bg);
             border-left: 1px solid var(--border-light);
@@ -577,14 +577,8 @@
 
             <div id="workspace-ui" style="display: none; height: 100%; display: flex; flex-direction: column;">
                 <div class="toolbar">
-                    <div class="toolbar-item">导出配置: <b>1080P / 16:9</b></div>
-                    <div class="toolbar-item">
-                        字幕:
-                        <label class="switch">
-                            <input type="checkbox" id="subtitle-toggle" checked>
-                            <span class="slider"></span>
-                        </label>
-                    </div>
+                    <div class="toolbar-item">项目状态: <b id="project-status">就绪</b></div>
+                    <div class="toolbar-item" id="slide-info">当前幻灯片: 1/1</div>
                 </div>
 
                 <div class="editor-container">
@@ -620,13 +614,17 @@
                     <i class="fas fa-closed-captioning"></i>
                     <span>字幕</span>
                 </div>
+                <div class="tab-icon" onclick="switchTab('export', this)">
+                    <i class="fas fa-file-export"></i>
+                    <span>导出</span>
+                </div>
                 <div class="tab-icon" onclick="switchTab('tasks', this)">
                     <i class="fas fa-list-check"></i>
                     <span>任务</span>
                 </div>
                 <div class="tab-icon" onclick="switchTab('api', this)">
                     <i class="fas fa-sliders-h"></i>
-                    <span>Set</span>
+                    <span>设置</span>
                 </div>
             </div>
             <div class="tab-content" id="panel-container">
@@ -642,6 +640,7 @@
                             <option value="volcengine">火山引擎 (Volcengine)</option>
                             <option value="google">Google Cloud TTS</option>
                             <option value="openai">OpenAI TTS</option>
+                            <option value="fishspeech">Fish Speech (新)</option>
 
                         </select>
                     </div>
@@ -701,11 +700,33 @@
                 <!-- Subtitle Panel -->
                 <div id="tab-subtitle" class="tab-panel">
                     <h3 style="font-size: 14px; margin-bottom: 16px;">字幕设置</h3>
+                    <div class="form-group" style="display: flex; align-items: center; justify-content: space-between;">
+                        <label class="form-label" style="margin-bottom: 0;">显示字幕</label>
+                        <label class="switch">
+                            <input type="checkbox" id="subtitle-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                     <div class="form-group">
                         <label class="form-label">字体大小</label>
                         <input type="number" id="subtitle-size" class="form-select" value="48" min="20" max="100">
                     </div>
+                </div>
 
+                <!-- Export Panel -->
+                <div id="tab-export" class="tab-panel">
+                    <h3 style="font-size: 14px; margin-bottom: 16px;">渲染与导出</h3>
+                    <div class="form-group">
+                        <label class="form-label">视频清晰度</label>
+                        <select id="quality-select" class="form-select">
+                            <option value="720p">720P (标清)</option>
+                            <option value="1080p" selected>1080P (高清)</option>
+                            <option value="4k">4K (超清)</option>
+                        </select>
+                        <p style="font-size: 11px; color: var(--text-dim); margin-top: 8px;">
+                            4K 模式将以 300 DPI 渲染幻灯片，耗时较长。
+                        </p>
+                    </div>
                 </div>
 
                 <!-- Task Panel -->
@@ -718,35 +739,57 @@
 
                 <!-- API Settings Panel -->
                 <div id="tab-api" class="tab-panel">
-                    <h3 style="font-size: 14px; margin-bottom: 16px;">API Settings</h3>
-                    <div class="control-group">
-                        <label class="form-label">OpenAI</label>
-                        <input type="password" id="openai-key" class="form-control" placeholder="sk-..."
-                            style="margin-bottom: 5px;">
-                        <input type="text" id="openai-base-url" class="form-control" placeholder="Base URL (Optional)">
+                    <h3 style="font-size: 14px; margin-bottom: 16px;">系统配置</h3>
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div
+                            style="background: #f9fafb; padding: 12px; border-radius: 8px; border: 1px solid var(--border-light);">
+                            <label class="form-label" style="color: var(--accent-blue);">OpenAI / LLM</label>
+                            <input type="password" id="openai-key" class="form-select" placeholder="API Key"
+                                style="margin-bottom: 8px;">
+                            <input type="text" id="openai-base-url" class="form-select" placeholder="Base URL (可选)">
+                        </div>
+
+                        <div
+                            style="background: #f9fafb; padding: 12px; border-radius: 8px; border: 1px solid var(--border-light);">
+                            <label class="form-label" style="color: var(--accent-blue);">火山引擎 (Volcengine)</label>
+                            <input type="text" id="volc-access-key" class="form-select" placeholder="Access Key"
+                                style="margin-bottom: 8px;">
+                            <input type="password" id="volc-secret-key" class="form-select" placeholder="Secret Key"
+                                style="margin-bottom: 8px;">
+                            <input type="text" id="volc-app-key" class="form-select" placeholder="App Key">
+                        </div>
+
+                        <div
+                            style="background: #f9fafb; padding: 12px; border-radius: 8px; border: 1px solid var(--border-light);">
+                            <label class="form-label" style="color: var(--accent-blue);">讯飞智作 (iFLYTEK)</label>
+                            <input type="text" id="xunfei-appid" class="form-select" placeholder="AppID"
+                                style="margin-bottom: 8px;">
+                            <input type="text" id="xunfei-api-key" class="form-select" placeholder="API Key"
+                                style="margin-bottom: 8px;">
+                            <input type="password" id="xunfei-api-secret" class="form-select" placeholder="API Secret">
+                        </div>
+
+                        <div
+                            style="background: #f9fafb; padding: 12px; border-radius: 8px; border: 1px solid var(--border-light);">
+                            <label class="form-label" style="color: var(--accent-blue);">Fish Speech</label>
+                            <input type="password" id="fish-key" class="form-select" placeholder="API Key"
+                                style="margin-bottom: 8px;">
+                            <input type="text" id="fish-url" class="form-select"
+                                placeholder="API URL (默认: https://api.fish.audio/v1/tts)">
+                        </div>
+
+                        <div
+                            style="background: #f9fafb; padding: 12px; border-radius: 8px; border: 1px solid var(--border-light);">
+                            <label class="form-label" style="color: var(--accent-blue);">Google Cloud</label>
+                            <input type="password" id="google-key" class="form-select" placeholder="API Key">
+                        </div>
                     </div>
-                    <div class="control-group">
-                        <label class="form-label">Google Cloud</label>
-                        <input type="password" id="google-key" class="form-control" placeholder="API Key">
-                    </div>
-                    <div class="control-group">
-                        <label class="form-label">火山引擎 (Volcengine)</label>
-                        <input type="text" id="volc-access-key" class="form-control" placeholder="Access Key"
-                            style="margin-bottom: 5px;">
-                        <input type="password" id="volc-secret-key" class="form-control" placeholder="Secret Key"
-                            style="margin-bottom: 5px;">
-                        <input type="text" id="volc-app-key" class="form-control" placeholder="App Key">
-                    </div>
-                    <div class="control-group">
-                        <label class="form-label">讯飞智作 (iFLYTEK)</label>
-                        <input type="text" id="xunfei-appid" class="form-control" placeholder="AppID"
-                            style="margin-bottom: 5px;">
-                        <input type="text" id="xunfei-api-key" class="form-control" placeholder="API Key"
-                            style="margin-bottom: 5px;">
-                        <input type="password" id="xunfei-api-secret" class="form-control" placeholder="API Secret">
-                    </div>
-                    <button class="btn btn-primary" onclick="saveConfig()" style="width: 100%;">保存配置</button>
-                    <div id="save-msg" style="margin-top: 10px; color: #4caf50; font-size: 12px; display: none;">配置已保存
+
+                    <button class="btn-modern btn-blue" onclick="saveConfig()"
+                        style="width: 100%; margin-top: 20px;">保存配置</button>
+                    <div id="save-msg"
+                        style="margin-top: 10px; color: #4caf50; font-size: 12px; display: none; text-align: center;">
+                        <i class="fas fa-check"></i> 配置已永久保存
                     </div>
                 </div>
             </div>
@@ -762,7 +805,7 @@
         // State
         let currentJobId = null;
         let slides = [];
-        let currentIndex = 0;
+        let currentIndex = -1;
 
         // Elements
         const fileInput = document.getElementById('file-upload');
@@ -843,7 +886,7 @@
         }
 
         function selectSlide(idx) {
-            if (slides[currentIndex]) {
+            if (currentIndex >= 0 && slides[currentIndex]) {
                 slides[currentIndex].text = scriptText.value;
             }
 
@@ -1049,6 +1092,7 @@
             const voice = document.getElementById('voice-select').value;
             const enableSubtitles = document.getElementById('subtitle-toggle').checked;
             const subtitleSize = parseInt(document.getElementById('subtitle-size').value, 10);
+            const quality = document.getElementById('quality-select').value;
 
             try {
                 const res = await fetch('/api/render', {
@@ -1063,7 +1107,8 @@
                         volume: getVolumeParam(),
                         pitch: getPitchParam(),
                         enable_subtitles: enableSubtitles,
-                        subtitle_font_size: subtitleSize
+                        subtitle_font_size: subtitleSize,
+                        quality: quality
                     })
                 });
 
@@ -1228,6 +1273,16 @@
                         { val: "BV701_streaming", text: "林林 (通用)" }
                     ]
                 }
+            ],
+            fishspeech: [
+                {
+                    label: "Fish Audio (云端/克隆)",
+                    options: [
+                        { val: "7f02fd683e0d4050a133900c4644377b", text: "精致女声 (示例)" },
+                        { val: "84a0c102ad774683a1c11bb8c88bf6fc", text: "精致男声 (示例)" },
+                        { val: "custom", text: "自定义 (见备注)" }
+                    ]
+                }
             ]
         };
 
@@ -1277,6 +1332,9 @@
 
                     document.getElementById('openai-key').value = data.openai_api_key || '';
                     document.getElementById('openai-base-url').value = data.openai_base_url || '';
+
+                    document.getElementById('fish-key').value = data.fish_speech_api_key || '';
+                    document.getElementById('fish-url').value = data.fish_speech_api_url || '';
                 });
         }
 
@@ -1293,7 +1351,10 @@
                 google_api_key: document.getElementById('google-key').value,
 
                 openai_api_key: document.getElementById('openai-key').value,
-                openai_base_url: document.getElementById('openai-base-url').value
+                openai_base_url: document.getElementById('openai-base-url').value,
+
+                fish_speech_api_key: document.getElementById('fish-key').value,
+                fish_speech_api_url: document.getElementById('fish-url').value
             };
 
             fetch('/api/config', {

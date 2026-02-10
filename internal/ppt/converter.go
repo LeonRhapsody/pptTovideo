@@ -10,9 +10,12 @@ import (
 	"strings"
 )
 
-// ConvertSlidesToImages converts a PPTX file to a sequence of images.
+// ConvertSlidesToImages converts a PPTX file to a sequence of images with specified DPI.
 // It returns a slice of absolute paths to the generated images, sorted by page number.
-func ConvertSlidesToImages(pptxPath string, outDir string) ([]string, error) {
+func ConvertSlidesToImages(pptxPath string, outDir string, dpi int) ([]string, error) {
+	if dpi <= 0 {
+		dpi = 150 // Default
+	}
 	// Ensure output directory exists
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create output dir: %w", err)
@@ -46,9 +49,9 @@ func ConvertSlidesToImages(pptxPath string, outDir string) ([]string, error) {
 	}
 
 	// 2. Convert PDF to images using pdftoppm (part of poppler)
-	// pdftoppm -jpeg -r 150 input.pdf output_prefix
+	// pdftoppm -jpeg -r DPI input.pdf output_prefix
 	prefix := "slide"
-	cmd = exec.Command("pdftoppm", "-jpeg", "-r", "150", pdfPath, filepath.Join(outDir, prefix))
+	cmd = exec.Command("pdftoppm", "-jpeg", "-r", strconv.Itoa(dpi), pdfPath, filepath.Join(outDir, prefix))
 	output, err = cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("pdftoppm conversion failed: %s, output: %s. (Ensure poppler is installed: brew install poppler)", err, string(output))

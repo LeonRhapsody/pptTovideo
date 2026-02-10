@@ -15,6 +15,7 @@ const (
 	EngineVolc   EngineType = "volcengine"
 	EngineGoogle EngineType = "google"
 	EngineOpenAI EngineType = "openai"
+	EngineFish   EngineType = "fishspeech"
 )
 
 // NewTTSProvider returns a TTSProvider based on the engine type.
@@ -32,6 +33,8 @@ func NewTTSProvider(engine EngineType, cfg *config.Config) (TTSProvider, error) 
 		return NewGoogleProvider(cfg), nil
 	case EngineOpenAI:
 		return NewOpenAIProvider(cfg), nil
+	case EngineFish:
+		return NewFishSpeechProvider(cfg), nil
 	default:
 		return nil, errors.New("unsupported TTS engine")
 	}

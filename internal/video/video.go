@@ -14,6 +14,7 @@ import (
 type RenderOptions struct {
 	EnableSubtitles bool
 	FontSize        int
+	VideoQuality    string // "720p", "1080p", "4k"
 }
 
 // ComposeVideo creates a video from corresponding images and audios with subtitles.
@@ -61,10 +62,22 @@ func ComposeVideo(images []string, audios []string, texts []string, output strin
 		input1 := ffmpeg.Input(currentImg, ffmpeg.KwArgs{"loop": 1, "t": dur})
 		input2 := ffmpeg.Input(audio)
 
+		// Dynamic bitrate based on quality
+		bitrate := "5M"
+		switch strings.ToLower(opts.VideoQuality) {
+		case "720p":
+			bitrate = "2.5M"
+		case "4k":
+			bitrate = "15M"
+		default:
+			bitrate = "5M"
+		}
+
 		err = ffmpeg.Output([]*ffmpeg.Stream{input1, input2}, partPath, ffmpeg.KwArgs{
 			"c:v":     "libx264",
 			"tune":    "stillimage",
 			"c:a":     "aac",
+			"b:v":     bitrate,
 			"b:a":     "192k",
 			"pix_fmt": "yuv420p",
 			"vf":      vf,

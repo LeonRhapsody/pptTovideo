@@ -42,6 +42,8 @@ func main() {
 		apiGroup.POST("/preview", handler.HandlePreview)
 		apiGroup.POST("/render", handler.HandleRender)
 		apiGroup.GET("/tasks", handler.HandleGetTasks)
+		apiGroup.GET("/config", handler.HandleGetConfig)
+		apiGroup.POST("/config", handler.HandleSaveConfig)
 	}
 
 	// 4. Start Server

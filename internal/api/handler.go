@@ -57,6 +57,7 @@ type RenderRequest struct {
 	Slides           []SlideData `json:"slides" binding:"required"`
 	EnableSubtitles  bool        `json:"enable_subtitles"`
 	SubtitleFontSize int         `json:"subtitle_font_size"`
+	Quality          string      `json:"quality"` // "720p", "1080p", "4k"
 }
 
 // splitTextIntoSentences splits text based on punctuation.
@@ -127,7 +128,8 @@ func (h *Handler) HandleParse(c *gin.Context) {
 		defer wg.Done()
 		imgDir := filepath.Join(workDir, "images")
 		var err error
-		images, err = ppt.ConvertSlidesToImages(pptxPath, imgDir)
+		// Default to 150 DPI for initial parsing/preview
+		images, err = ppt.ConvertSlidesToImages(pptxPath, imgDir, 150)
 		if err != nil {
 			errChan <- fmt.Errorf("image conversion failed: %w", err)
 		}
@@ -283,6 +285,47 @@ func (h *Handler) HandleRender(c *gin.Context) {
 			return
 		}
 
+		// Quality mapping
+		dpi := 150
+		quality := strings.ToLower(req.Quality)
+		if quality == "" {
+			quality = "1080p"
+		}
+
+		switch quality {
+		case "720p":
+			dpi = 120
+		case "4k":
+			dpi = 300
+		default:
+			dpi = 150
+		}
+
+		// Re-generate images if DPI is different from default (150)
+		imageDir := filepath.Join(workDir, "images")
+		if dpi != 150 {
+			imageDir = filepath.Join(workDir, fmt.Sprintf("images_%d", dpi))
+			if _, err := os.Stat(imageDir); os.IsNotExist(err) {
+				GlobalJobManager.UpdateProgress(jobID, 12, fmt.Sprintf("Re-generating images for %s...", quality))
+				pptxPath := ""
+				// Find pptx file in workDir
+				files, _ := ioutil.ReadDir(workDir)
+				for _, f := range files {
+					if strings.HasSuffix(strings.ToLower(f.Name()), ".pptx") {
+						pptxPath = filepath.Join(workDir, f.Name())
+						break
+					}
+				}
+				if pptxPath != "" {
+					_, err := ppt.ConvertSlidesToImages(pptxPath, imageDir, dpi)
+					if err != nil {
+						GlobalJobManager.FailJob(jobID, "Failed to re-generate high-quality images: "+err.Error())
+						return
+					}
+				}
+			}
+		}
+
 		audioDir := filepath.Join(workDir, "audio_render")
 		os.MkdirAll(audioDir, 0755)
 
@@ -296,7 +339,8 @@ func (h *Handler) HandleRender(c *gin.Context) {
 		for _, slide := range req.Slides {
 			urlParts := strings.Split(slide.ImageURL, "/")
 			filename := urlParts[len(urlParts)-1]
-			imgPath := filepath.Join(workDir, "images", filename)
+			// Use the potentially re-generated image directory
+			imgPath := filepath.Join(imageDir, filename)
 
 			rawText := slide.Text
 			if len(strings.TrimSpace(rawText)) == 0 {
@@ -305,13 +349,21 @@ func (h *Handler) HandleRender(c *gin.Context) {
 					ImagePath: imgPath,
 				})
 			} else {
-				subSentences := splitTextIntoSentences(rawText)
-				if len(subSentences) == 0 {
-					subSentences = []string{rawText}
-				}
-				for _, s := range subSentences {
+				if req.EnableSubtitles {
+					subSentences := splitTextIntoSentences(rawText)
+					if len(subSentences) == 0 {
+						subSentences = []string{rawText}
+					}
+					for _, s := range subSentences {
+						segments = append(segments, Segment{
+							Text:      s,
+							ImagePath: imgPath,
+						})
+					}
+				} else {
+					// Subtitles disabled: one segment per slide
 					segments = append(segments, Segment{
-						Text:      s,
+						Text:      rawText,
 						ImagePath: imgPath,
 					})
 				}
@@ -361,6 +413,7 @@ func (h *Handler) HandleRender(c *gin.Context) {
 		opts := video.RenderOptions{
 			EnableSubtitles: req.EnableSubtitles,
 			FontSize:        req.SubtitleFontSize,
+			VideoQuality:    quality,
 		}
 
 		if err := video.ComposeVideo(imagePaths, audioPaths, texts, outputVideoPath, opts); err != nil {

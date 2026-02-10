@@ -48,48 +48,33 @@ func ParsePPT(pptxPath string) ([]Slide, error) {
 	for i, rId := range slideRIds {
 		target, ok := relMap[rId]
 		if !ok {
+			fmt.Printf("Debug: rId %s not found in relMap\n", rId)
 			continue
 		}
 		// Target is like "slides/slide1.xml"
 		slideFilename := filepath.Base(target) // slide1.xml
 
 		// Find notes for this slide
-		// Look in ppt/slides/_rels/slideX.xml.rels
 		slideRelPath := fmt.Sprintf("ppt/slides/_rels/%s.rels", slideFilename)
 
 		noteText := ""
-		// slideRelMap was unused in previous code, removing checking directly.
+		noteFile := findNotesTarget(r, slideRelPath)
+		if noteFile != "" {
+			fullPath := filepath.Join("ppt/slides", noteFile)
+			fullPath = filepath.ToSlash(filepath.Clean(fullPath))
 
-		if err == nil {
-			// Find relationship of type notesSlide
-			// But since we just have a map of ID->Target, we need to scan the actual XML or just look for the target that contains "notesSlide" in our simple map?
-			// The simple map I implemented below keys by rId. I should probably return more info or scan values.
-			// Let's modify parseRelationships to return a list or helper.
-			// Actually, let's just re-parse specifically for notes logic here to be precise.
-
-			noteFile := findNotesTarget(r, slideRelPath)
-			if noteFile != "" {
-				// noteFile is usually relative to the slide part (ppt/slides/), e.g., "../notesSlides/notesSlide1.xml"
-				// We assume the slide is in "ppt/slides/" based on standard structure.
-				// Resolve path: ppt/slides/ + ../notesSlides/notesSlide1.xml -> ppt/notesSlides/notesSlide1.xml
-
-				// Use path/filepath to clean it, but ensure we use forward slashes for zip
-				fullPath := filepath.Join("ppt/slides", noteFile)
-				// filepath.Clean handles the ".." resolution
-				fullPath = filepath.ToSlash(filepath.Clean(fullPath))
-
-				var errExtract error
-				noteText, errExtract = extractTextFromXML(r, fullPath)
-				if errExtract != nil {
-					// Just log/print and continue, don't fail the whole parse
-					fmt.Printf("Warning: failed to extract notes from %s: %v\n", fullPath, errExtract)
-				}
+			var errExtract error
+			noteText, errExtract = extractTextFromXML(r, fullPath)
+			if errExtract != nil {
+				fmt.Printf("Warning: failed to extract notes from %s: %v\n", fullPath, errExtract)
 			}
 		}
 
 		if noteText == "" {
 			noteText = "No notes for this slide."
 		}
+
+		fmt.Printf("Debug: Slide %d (rId %s) notes length: %d\n", i+1, rId, len(noteText))
 
 		slides = append(slides, Slide{
 			Index: i + 1,
@@ -153,9 +138,8 @@ func parsePresentationOrder(r *zip.ReadCloser, path string) ([]string, error) {
 	data, _ := ioutil.ReadAll(rc)
 	content := string(data)
 
-	// Regex to find r:id="..." inside sldId
 	// <p:sldId ... r:id="rId2"/>
-	re := regexp.MustCompile(`p:sldId[^>]*r:id="([^"]+)"`)
+	re := regexp.MustCompile(`sldId[^>]*r:id="([^"]+)"`)
 	matches := re.FindAllStringSubmatch(content, -1)
 
 	var ids []string
@@ -164,6 +148,7 @@ func parsePresentationOrder(r *zip.ReadCloser, path string) ([]string, error) {
 			ids = append(ids, m[1])
 		}
 	}
+	fmt.Printf("Debug: Found %d slide IDs in presentation.xml\n", len(ids))
 	return ids, nil
 }
 
@@ -213,60 +198,52 @@ func extractTextFromXML(r *zip.ReadCloser, path string) (string, error) {
 		return "", err
 	}
 
-	// XML Struct definitions for Notes Slide
-	type Ph struct {
-		Type string `xml:"type,attr"`
-	}
-	type NvPr struct {
-		Ph Ph `xml:"ph"`
-	}
-	type NvSpPr struct {
-		NvPr NvPr `xml:"nvPr"`
-	}
-	type T struct {
-		Content string `xml:",chardata"`
-	}
-	type R struct {
-		T T `xml:"t"`
-	}
-	type P struct {
-		R []R `xml:"r"`
-	}
-	type TxBody struct {
-		P []P `xml:"p"`
-	}
-	type Sp struct {
-		NvSpPr NvSpPr `xml:"nvSpPr"`
-		TxBody TxBody `xml:"txBody"`
-	}
-	type SpTree struct {
-		Sp []Sp `xml:"sp"`
-	}
-	type CSld struct {
-		SpTree SpTree `xml:"spTree"`
-	}
-	type Notes struct {
-		CSld CSld `xml:"cSld"`
-	}
-
-	var notes Notes
-	if err := xml.Unmarshal(data, &notes); err != nil {
-		return "", err
-	}
-
+	// Dynamic decoder to walk all nodes and find <a:t> occurrences
+	decoder := xml.NewDecoder(strings.NewReader(string(data)))
 	var fullTextBuilder strings.Builder
+	var inText bool
+	var ignoreShape bool
 
-	// Iterate over shapes to find the one with type="body"
-	for _, sp := range notes.CSld.SpTree.Sp {
-		if sp.NvSpPr.NvPr.Ph.Type == "body" {
-			// This is the notes body
-			for _, p := range sp.TxBody.P {
-				for _, run := range p.R {
-					fullTextBuilder.WriteString(run.T.Content)
+	for {
+		t, err := decoder.Token()
+		if err != nil {
+			break
+		}
+		switch se := t.(type) {
+		case xml.StartElement:
+			// If we enter a new shape, reset ignore flag
+			if se.Name.Local == "sp" {
+				ignoreShape = false
+			}
+			// Check for placeholder type
+			if se.Name.Local == "ph" {
+				for _, attr := range se.Attr {
+					if attr.Name.Local == "type" {
+						val := strings.ToLower(attr.Value)
+						// Ignore header, footer, date, and slide number placeholders
+						if val == "hdr" || val == "ftr" || val == "dt" || val == "sldnum" {
+							ignoreShape = true
+						}
+					}
 				}
-				// Add newline for each paragraph, or space?
-				// Notes usually paragraphs. A newline is safer.
+			}
+
+			if se.Name.Local == "t" && !ignoreShape {
+				inText = true
+			}
+		case xml.CharData:
+			if inText {
+				fullTextBuilder.WriteString(string(se))
+			}
+		case xml.EndElement:
+			if se.Name.Local == "t" {
+				inText = false
+			}
+			if se.Name.Local == "p" && !ignoreShape {
 				fullTextBuilder.WriteString("\n")
+			}
+			if se.Name.Local == "sp" {
+				ignoreShape = false
 			}
 		}
 	}
