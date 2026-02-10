@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  ppt-to-video:
+    build: .
+    container_name: ppt-to-video
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./config.json:/app/config.json
+    restart: always
